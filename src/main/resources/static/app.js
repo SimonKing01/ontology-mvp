@@ -1118,10 +1118,53 @@
         });
     }
 
+    /* ---------------------------------------------------------------- 元模型刷新 / 视图切换 */
+    async function refreshMetamodel() {
+        const [types, links, actions] = await Promise.all([
+            api('/api/meta/object-types'),
+            api('/api/meta/link-types'),
+            api('/api/meta/action-types')
+        ]);
+        state.types = types.map(v => ({ ...v.definition, revision: v.revision }));
+        state.linkTypes = links.map(v => ({ ...v.definition, revision: v.revision }));
+        state.actions = actions.map(v => ({ ...v.definition, revision: v.revision }));
+        renderLinks();
+        await loadCounts();
+        if (state.type) {
+            const still = typeOf(state.type.code);
+            state.type = still || null;
+            if (still) {
+                state.filters = state.filters.filter(f => still.find(f.prop));
+                state.fields = state.fields.filter(k => still.find(k));
+                if (state.sort.prop && !still.find(state.sort.prop)
+                    && !['objectId', 'businessKey', 'createdAt', 'updatedAt'].includes(state.sort.prop)) {
+                    state.sort.prop = '';
+                }
+                renderTypeHeader();
+                renderSortOptions();
+                renderFilterRows();
+                renderFields();
+                renderActionPanel();
+            }
+        }
+    }
+
+    function setView(view) {
+        document.querySelectorAll('.view-btn').forEach(b =>
+            b.classList.toggle('active', b.dataset.view === view));
+        const layout = document.querySelector('.layout');
+        if (layout) layout.classList.toggle('hidden', view !== 'browse');
+        const metaView = $('#meta-view');
+        if (metaView) metaView.classList.toggle('hidden', view !== 'meta');
+        if (view === 'meta' && window.__meta) window.__meta.open();
+    }
+
     /* ---------------------------------------------------------------- 启动 */
     function boot() {
         bindLogin();
         bindApp();
+        document.querySelectorAll('.view-btn').forEach(b =>
+            b.addEventListener('click', () => setView(b.dataset.view)));
         const saved = sessionStorage.getItem(SESSION_KEY);
         if (saved) {
             try {
@@ -1131,6 +1174,8 @@
             } catch { /* ignore */ }
         }
     }
+
+    window.__onto = { api, toast, el, state, typeOf, refreshMetamodel, setView, fmtValue, fmtTime };
 
     boot();
 })();

@@ -36,6 +36,9 @@ class SessionUiTest extends BaseIntegrationTest {
         ResponseEntity<String> style = rest.getForEntity("/style.css", String.class);
         assertThat(style.getStatusCode().value()).isEqualTo(200);
 
+        ResponseEntity<String> metaScript = rest.getForEntity("/meta.js", String.class);
+        assertThat(metaScript.getStatusCode().value()).isEqualTo(200);
+
         ResponseEntity<String> count = rest.getForEntity("/api/objects/count", String.class);
         assertThat(count.getStatusCode().value()).isEqualTo(401);
     }

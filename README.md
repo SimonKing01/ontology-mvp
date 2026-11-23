@@ -53,6 +53,26 @@ docker compose down -v && docker compose up -d && mvn spring-boot:run && ./demo.
 
 第一次玩，建议先看 **[TUTORIAL.md](TUTORIAL.md)**：带编号标注的截图 + 6 个照着点的小任务，不需要任何背景知识。
 
+### 1.2 元模型配置页（页面配置）
+
+右上角切到 **「元模型配置」**，对象、关系、Action 都能在页面上改，不用再手写 curl：
+
+![元模型配置](docs/meta-editor.png)
+
+| 页签 | 能做什么 | 写哪个接口 |
+|---|---|---|
+| 对象类型 | 基本信息 + 属性表（`key/type/owner/required/sourcePath/derivedExpr`），新建 / 修改 / 查看历史版本 / 按旧版本生成新 revision | `POST/PUT /api/meta/object-types` |
+| 链接类型 | 起止类型、基数、两侧源列、正反向名 | `POST/PUT /api/meta/link-types` |
+| Action 类型 | 参数表（含 `objectRef`）用表单；前置条件、变更用 JSON 编辑（带格式化） | `POST/PUT /api/meta/action-types` |
+| 数据集 | 列表 + 新建（id / 源 / schema.table / maxRows） | `POST /api/datasets` |
+
+几条边界：
+
+- **没有新增写路径**：页面只调上面这些既有接口，和 curl/Swagger 是同一套 API；
+- **保存前双检**：页面先做轻量校验（owner 与 sourcePath/derivedExpr 的搭配、key 重复、idField 是否声明），服务端再做全量校验，错误逐条列出来；
+- **不能删除定义**：`code` 创建后不可改，也没有 DELETE。要下线就把 `status` 改成 `deprecated`（采集会拒绝 deprecated 类型）；
+- **数据源仍走 API**：`POST /api/datasources` 要处理密码加密，页面暂不提供表单。
+
 ---
 
 ## 2. 架构
@@ -478,6 +498,7 @@ TEST_DB_URL=jdbc:postgresql://localhost:55434/ontology_test mvn test
 5. **元模型循环引用需两阶段引入**：`Flight.delayMinutes` 依赖 `DelayedBy`，而 `DelayedBy` 依赖 `Flight`，所以先建类型与链接、再 `PUT` 补派生属性（正好演示 revision 1→2）。要一次成型需要"多定义草稿 + 原子发布"。
 6. **单字段排序**、多值属性不支持过滤/排序/前置条件、不支持跨数据源链接——都是刻意收窄，避免语义含糊。
 7. **演示控制台不在 MVP 范围**：静态页 + 一个只读 session 接口；Basic 凭据存 `sessionStorage`，生产必须换成正式登录态。
+8. **页面配置的边界**：不提供定义删除（用 `status=deprecated` 下线）、不提供数据源表单（密码加密走 API）、Action 的前置条件/变更目前是 JSON 编辑而不是可视化条件构建器。
 
 **明确不做（按契约）**
 

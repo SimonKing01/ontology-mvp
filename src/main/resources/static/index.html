@@ -51,6 +51,10 @@
             </div>
         </div>
         <div class="topbar-right">
+            <nav class="view-switch" id="view-switch">
+                <button class="view-btn active" data-view="browse">浏览</button>
+                <button class="view-btn" data-view="meta">元模型配置</button>
+            </nav>
             <a class="btn ghost sm" href="/swagger-ui.html" target="_blank" rel="noreferrer">接口文档</a>
             <div class="user-chip">
                 <span class="avatar" id="user-avatar">A</span>
@@ -174,9 +178,12 @@
     </div>
 </div>
 
+<div class="meta-view hidden" id="meta-view"></div>
+
 <div class="toasts" id="toasts"></div>
 <div class="progress" id="progress"></div>
 
 <script src="/app.js"></script>
+<script src="/meta.js"></script>
 </body>
 </html>
