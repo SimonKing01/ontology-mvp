@@ -51,6 +51,8 @@ docker compose down -v && docker compose up -d && mvn spring-boot:run && ./demo.
 
 实现是原生 HTML/CSS/JS（`src/main/resources/static/`），没有构建链，由应用静态托管；**只调用既有 API，没有新增任何写路径**，唯一的后端新增是一个只读的 `GET /api/session`（返回当前角色）。它不在提示词的交付清单里，只是为了让链路"看得见"；Basic 凭据放在 `sessionStorage`，仅供本地演示。
 
+第一次玩，建议先看 **[TUTORIAL.md](TUTORIAL.md)**：带编号标注的截图 + 6 个照着点的小任务，不需要任何背景知识。
+
 ---
 
 ## 2. 架构
