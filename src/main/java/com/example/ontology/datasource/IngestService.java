@@ -85,6 +85,8 @@ public class IngestService {
         double rate = elapsed > 0 ? processed * 1000.0 / elapsed : 0.0;
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("running", running);
+        body.put("busy", ingesting.get());
+        body.put("action", runningAction);
         body.put("processed", processed);
         body.put("total", total);
         body.put("percent", Math.round(percent * 10) / 10.0);
@@ -156,44 +158,75 @@ public class IngestService {
     // ------------------------------------------------------------------
     // 入口
     // ------------------------------------------------------------------
+    /** 采集互斥：同一时刻只允许一个采集在跑，避免并发采集打满连接池与堆内存。 */
+    private final java.util.concurrent.atomic.AtomicBoolean ingesting = new java.util.concurrent.atomic.AtomicBoolean(false);
+    private volatile String runningAction = null;
+
+    private <T> T withIngestLock(String action, java.util.function.Supplier<T> body) {
+        if (!ingesting.compareAndSet(false, true)) {
+            Map<String, Object> detail = new LinkedHashMap<>();
+            detail.put("requestedAction", action);
+            detail.put("runningAction", runningAction);
+            detail.put("processed", processedRows.get());
+            detail.put("total", totalRows.get());
+            detail.put("currentType", currentType);
+            throw OntologyException.conflict("已有采集任务正在执行，请等它结束（GET /api/ingest/progress 可查看进度）", detail);
+        }
+        runningAction = action;
+        try {
+            return body.get();
+        } finally {
+            ingesting.set(false);
+            runningAction = null;
+        }
+    }
+
+    public boolean busy() {
+        return ingesting.get();
+    }
+
     @Transactional(transactionManager = TransactionConfig.JDBC_TX_MANAGER)
     public IngestReport ingestObjectType(String typeCode) {
-        beginProgress(estimateTypeRows(typeCode));
-        currentType = typeCode;
-        try {
-            return doIngestObjectType(typeCode);
-        } finally {
-            endProgress();
-        }
+        return withIngestLock("按类型采集 " + typeCode, () -> {
+            beginProgress(estimateTypeRows(typeCode));
+            currentType = typeCode;
+            try {
+                return doIngestObjectType(typeCode);
+            } finally {
+                endProgress();
+            }
+        });
     }
 
     @Transactional(transactionManager = TransactionConfig.JDBC_TX_MANAGER)
     public LinkReport rebuildLinks() {
-        return doRebuildLinks();
+        return withIngestLock("重建链接", this::doRebuildLinks);
     }
 
     @Transactional(transactionManager = TransactionConfig.JDBC_TX_MANAGER)
     public DerivedReport recomputeDerived() {
-        return doRecomputeDerived();
+        return withIngestLock("重算派生", this::doRecomputeDerived);
     }
 
     /** 对象 → 链接 → 派生，一个事务内完成，避免出现"有对象没链接"的中间态。 */
     public IngestAllReport ingestAll() {
-        beginProgress(estimateAllRows());
-        try {
-            return tx.execute(status -> {
-                List<IngestReport> reports = new ArrayList<>();
-                for (ObjectTypeDef type : registry.objectTypes()) {
-                    currentType = type.code();
-                    reports.add(doIngestObjectType(type.code()));
-                }
-                LinkReport links = doRebuildLinks();
-                DerivedReport derived = doRecomputeDerived();
-                return new IngestAllReport(reports, links, derived);
-            });
-        } finally {
-            endProgress();
-        }
+        return withIngestLock("全量采集", () -> {
+            beginProgress(estimateAllRows());
+            try {
+                return tx.execute(status -> {
+                    List<IngestReport> reports = new ArrayList<>();
+                    for (ObjectTypeDef type : registry.objectTypes()) {
+                        currentType = type.code();
+                        reports.add(doIngestObjectType(type.code()));
+                    }
+                    LinkReport links = doRebuildLinks();
+                    DerivedReport derived = doRecomputeDerived();
+                    return new IngestAllReport(reports, links, derived);
+                });
+            } finally {
+                endProgress();
+            }
+        });
     }
 
     // ------------------------------------------------------------------

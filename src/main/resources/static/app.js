@@ -59,6 +59,94 @@
         return m + ' 分 ' + (total % 60) + ' 秒';
     }
 
+    // ---------------------------------------------------------------- 采集进度
+    let ingestWasBusy = false;
+    let ingestIdleTicks = 0;
+
+    function startIngestProgress() {
+        const box = $('#ingest-progress');
+        if (!box) return;
+        box.classList.remove('hidden');
+        $('#ip-fill').style.width = '0%';
+        $('#ip-pct').textContent = '0%';
+        $('#ip-count').textContent = '— / —';
+        $('#ip-rate').textContent = '';
+        $('#ip-elapsed').textContent = '';
+        $('#ip-type').textContent = '';
+        ingestWasBusy = true;
+        ingestIdleTicks = 0;
+        pollIngestProgress();
+        if (ingestTimer) clearInterval(ingestTimer);
+        ingestTimer = setInterval(pollIngestProgress, 800);
+    }
+
+    function stopIngestProgress() {
+        if (ingestTimer) {
+            clearInterval(ingestTimer);
+            ingestTimer = null;
+        }
+        ingestWasBusy = false;
+        ingestIdleTicks = 0;
+        const box = $('#ingest-progress');
+        if (box) box.classList.add('hidden');
+    }
+
+    function renderIngestProgress(p) {
+        const pct = Math.max(0, Math.min(100, p.percent || 0));
+        $('#ip-fill').style.width = pct + '%';
+        $('#ip-pct').textContent = pct.toFixed(1) + '%';
+        $('#ip-count').textContent = fmtInt(p.processed) + ' / ' + fmtInt(p.total) + ' 行';
+        $('#ip-type').textContent = p.action || p.currentType || '';
+        $('#ip-rate').textContent = p.rowsPerSecond ? fmtInt(p.rowsPerSecond) + ' 行/秒' : '';
+        $('#ip-elapsed').textContent = p.elapsedMs ? '已用 ' + fmtElapsed(p.elapsedMs) : '';
+    }
+
+    async function fetchProgress() {
+        const res = await fetch('/api/ingest/progress', {
+            headers: { 'Authorization': 'Basic ' + btoa(`${session.user}:${session.pass}`) }
+        });
+        if (!res.ok) return null;
+        return res.json();
+    }
+
+    async function pollIngestProgress() {
+        try {
+            const p = await fetchProgress();
+            if (!p) return;
+            if (p.busy) {
+                ingestWasBusy = true;
+                ingestIdleTicks = 0;
+                renderIngestProgress(p);
+                return;
+            }
+            // 请求刚发出时后端可能还没拿到锁，连续几次都空闲才认定采集结束
+            ingestIdleTicks++;
+            if (ingestIdleTicks >= 3 && ingestWasBusy) {
+                stopIngestProgress();
+                await loadCounts();
+                await refreshStats();
+                if (state.type) await runQuery(true);
+            }
+        } catch (e) {
+            // 轮询失败忽略，下一轮再试
+        }
+    }
+
+    // 页面加载时若后端正在采集，直接接上进度条（刷新页面也不丢）
+    async function resumeIngestProgress() {
+        try {
+            const p = await fetchProgress();
+            if (!p || !p.busy) return;
+            $('#ingest-progress').classList.remove('hidden');
+            ingestWasBusy = true;
+            renderIngestProgress(p);
+            if (ingestTimer) clearInterval(ingestTimer);
+            ingestTimer = setInterval(pollIngestProgress, 800);
+        } catch (e) {
+            // 忽略
+        }
+    }
+
     function shortId(id, keep = 34) {
         if (!id) return '';
         return id.length > keep ? id.slice(0, keep - 1) + '…' : id;
@@ -246,6 +334,7 @@
                 || state.types.find(t => t.readable)
                 || state.types[0];
             if (preferred) await selectType(preferred.code);
+            await resumeIngestProgress();
         } catch (e) {
             toast('初始化失败：' + e.message, 'err', e.code, e.details ? JSON.stringify(e.details) : null);
         }
@@ -1118,59 +1207,21 @@
                 await loadCounts();
                 await refreshStats();
                 if (state.type) await runQuery(true);
+                stopIngestProgress();
             } catch (e) {
-                toast(e.message, 'err', e.code, e.details ? JSON.stringify(e.details) : null);
+                if (e.status === 409) {
+                    toast('已有采集正在进行', 'warn', e.code, '这里显示它的实时进度，结束后自动刷新');
+                } else {
+                    toast(e.message, 'err', e.code, e.details ? JSON.stringify(e.details) : null);
+                    stopIngestProgress();
+                }
             } finally {
                 btn.dataset.busy = '';
                 btn.disabled = false;
-                stopIngestProgress();
             }
         });
 
-        // 采集进度：轮询 /api/ingest/progress，采集请求本身保持 pending
-        function startIngestProgress() {
-            const box = $('#ingest-progress');
-            if (!box) return;
-            box.classList.remove('hidden');
-            $('#ip-fill').style.width = '0%';
-            $('#ip-pct').textContent = '0%';
-            $('#ip-count').textContent = '— / —';
-            $('#ip-rate').textContent = '';
-            $('#ip-elapsed').textContent = '';
-            $('#ip-type').textContent = '';
-            pollIngestProgress();
-            if (ingestTimer) clearInterval(ingestTimer);
-            ingestTimer = setInterval(pollIngestProgress, 800);
-        }
-
-        function stopIngestProgress() {
-            if (ingestTimer) {
-                clearInterval(ingestTimer);
-                ingestTimer = null;
-            }
-            const box = $('#ingest-progress');
-            if (box) box.classList.add('hidden');
-        }
-
-        async function pollIngestProgress() {
-            try {
-                const res = await fetch('/api/ingest/progress', {
-                    headers: { 'Authorization': 'Basic ' + btoa(`${session.user}:${session.pass}`) }
-                });
-                if (!res.ok) return;
-                const p = await res.json();
-                if (!p.running) return;
-                const pct = Math.max(0, Math.min(100, p.percent || 0));
-                $('#ip-fill').style.width = pct + '%';
-                $('#ip-pct').textContent = pct.toFixed(1) + '%';
-                $('#ip-count').textContent = fmtInt(p.processed) + ' / ' + fmtInt(p.total) + ' 行';
-                $('#ip-type').textContent = p.currentType || '';
-                $('#ip-rate').textContent = p.rowsPerSecond ? fmtInt(p.rowsPerSecond) + ' 行/秒' : '';
-                $('#ip-elapsed').textContent = p.elapsedMs ? '已用 ' + fmtElapsed(p.elapsedMs) : '';
-            } catch (e) {
-                // 轮询失败忽略，下一轮再试
-            }
-        }
+        // 采集进度：轮询后端进度，采集请求本身保持 pending
         $('#btn-validate').addEventListener('click', async () => {
             try {
                 const r = await api('/api/meta/validate');
