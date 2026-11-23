@@ -47,7 +47,7 @@ public abstract class BaseIntegrationTest {
     void resetDatabase() {
         api = new TestClient(rest, mapper);
         jdbc.execute("""
-                truncate table act_edit, act_run, obj_link_tombstone, obj_link, obj_prop, obj_object,
+                truncate table act_edit, act_run, obj_link_tombstone, obj_link, obj_prop, obj_object, obj_set,
                 ont_definition_history, ont_definition restart identity cascade
                 """);
         jdbc.execute("truncate table ds_dataset, ds_source restart identity cascade");

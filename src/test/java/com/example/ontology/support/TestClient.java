@@ -54,6 +54,10 @@ public class TestClient {
         return exchange(HttpMethod.GET, path, null, user);
     }
 
+    public Resp delete(String path, String user) {
+        return exchange(HttpMethod.DELETE, path, null, user);
+    }
+
     private Resp exchange(HttpMethod method, String path, Object body, String user) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);

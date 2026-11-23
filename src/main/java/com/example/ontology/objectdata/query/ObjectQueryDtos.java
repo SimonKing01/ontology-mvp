@@ -26,7 +26,8 @@ public final class ObjectQueryDtos {
             List<SortDef> sort,
             Integer pageSize,
             String cursor,
-            List<String> fields
+            List<String> fields,
+            String objectSetId
     ) {
     }
 

@@ -8,6 +8,7 @@ import {
 } from './core.js';
 import { initTraverse, renderTraversePane } from './views/traverse.js';
 import { initAggregate, openAggregate } from './views/aggregate.js';
+import { initObjectSet, loadSets, saveCurrentQuery, renderSets } from './views/objectset.js';
 
 (() => {
     'use strict';
@@ -192,6 +193,7 @@ import { initAggregate, openAggregate } from './views/aggregate.js';
             renderStats();
             renderLinks();
             await loadCounts();
+            await loadSets();
 
             if (!state.types.length) {
                 renderNoModel();
@@ -1053,6 +1055,7 @@ import { initAggregate, openAggregate } from './views/aggregate.js';
     /* ---------------------------------------------------------------- 事件 */
     function bindApp() {
         $('#btn-agg').addEventListener('click', () => openAggregate());
+        $('#btn-save-set').addEventListener('click', () => saveCurrentQuery());
 
         $('#add-filter').addEventListener('click', () => {
             const props = state.type ? (state.type.properties || []) : [];
@@ -1156,6 +1159,15 @@ import { initAggregate, openAggregate } from './views/aggregate.js';
         bindApp();
         initTraverse({ selectObject });
         initAggregate({ onClose: () => { if (state.type) runQuery(true); } });
+        initObjectSet({
+            onApply: (filters, sort) => {
+                state.filters = filters.map(f => ({ ...f }));
+                state.sort = { prop: sort && sort.length ? sort[0].prop : '', dir: sort && sort.length ? (sort[0].op === 'desc' ? 'desc' : 'asc') : 'asc' };
+                renderFilterRows();
+                renderSortOptions();
+            },
+            onRerun: () => runQuery(true)
+        });
         document.querySelectorAll('.view-btn').forEach(b =>
             b.addEventListener('click', () => setView(b.dataset.view)));
         const saved = sessionStorage.getItem(SESSION_KEY);

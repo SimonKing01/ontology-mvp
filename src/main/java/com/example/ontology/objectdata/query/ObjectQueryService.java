@@ -42,17 +42,20 @@ public class ObjectQueryService {
     private final MetamodelRegistry registry;
     private final OntologyAuthorizer authorizer;
     private final ObjectQuerySqlBuilder sqlBuilder;
+    private final ObjectSetService objectSetService;
     private final ObjectStore store;
 
     public ObjectQueryService(NamedParameterJdbcTemplate jdbc,
                               MetamodelRegistry registry,
                               OntologyAuthorizer authorizer,
                               ObjectQuerySqlBuilder sqlBuilder,
-                              ObjectStore store) {
+                              ObjectStore store,
+                            ObjectSetService objectSetService) {
         this.jdbc = jdbc;
         this.registry = registry;
         this.authorizer = authorizer;
         this.sqlBuilder = sqlBuilder;
+        this.objectSetService = objectSetService;
         this.store = store;
     }
 
@@ -73,12 +76,20 @@ public class ObjectQueryService {
             throw OntologyException.badRequest("pageSize 取值范围 1.." + MAX_PAGE_SIZE);
         }
         List<FilterDef> filters = request.filters() == null ? List.of() : request.filters();
+        List<SortDef> sorts = request.sort();
+        if (request.objectSetId() != null && !request.objectSetId().isBlank()) {
+            ObjectSetService.Definition set = objectSetService.requireReadable(request.objectSetId(), type.code());
+            filters = set.filters();
+            if (sorts == null || sorts.isEmpty()) {
+                sorts = set.sort();
+            }
+        }
         requireFilterPermission(type, filters);
 
-        if (request.sort() != null && request.sort().size() > 1) {
+        if (sorts != null && sorts.size() > 1) {
             throw OntologyException.badRequest("MVP 只支持单字段排序（多字段排序请等下期）");
         }
-        SortDef sortDef = request.sort() == null || request.sort().isEmpty() ? null : request.sort().get(0);
+        SortDef sortDef = sorts == null || sorts.isEmpty() ? null : sorts.get(0);
         ObjectQuerySqlBuilder.SortSpec sort = sqlBuilder.resolveSort(type, sortDef);
         if (sort != null && sort.joinProp() && !authorizer.canReadField(type.code(), sort.propKey())) {
             throw OntologyException.forbidden("无权按属性排序: " + sort.propKey());
