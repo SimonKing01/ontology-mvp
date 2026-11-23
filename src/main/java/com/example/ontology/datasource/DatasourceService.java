@@ -3,7 +3,6 @@ package com.example.ontology.datasource;
 import com.example.ontology.common.ErrorCode;
 import com.example.ontology.common.OntologyException;
 import com.example.ontology.config.CryptoService;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,12 +18,10 @@ public class DatasourceService {
 
     private final DsSourceRepository repository;
     private final CryptoService crypto;
-    private final ObjectMapper mapper;
 
-    public DatasourceService(DsSourceRepository repository, CryptoService crypto, ObjectMapper mapper) {
+    public DatasourceService(DsSourceRepository repository, CryptoService crypto) {
         this.repository = repository;
         this.crypto = crypto;
-        this.mapper = mapper;
     }
 
     @Transactional

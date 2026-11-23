@@ -1,6 +1,5 @@
 package com.example.ontology.action;
 
-import com.example.ontology.common.PageResult;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -22,13 +21,10 @@ import java.util.List;
 public class ActionController {
 
     private final ActionExecutionService executionService;
-    private final AuditService auditService;
     private final ReportService reportService;
 
-    public ActionController(ActionExecutionService executionService, AuditService auditService,
-                            ReportService reportService) {
+    public ActionController(ActionExecutionService executionService, ReportService reportService) {
         this.executionService = executionService;
-        this.auditService = auditService;
         this.reportService = reportService;
     }
 

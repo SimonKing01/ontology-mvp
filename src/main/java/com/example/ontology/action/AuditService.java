@@ -8,7 +8,6 @@ import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.time.OffsetDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -174,9 +173,5 @@ public class AuditService {
         } catch (JsonProcessingException ex) {
             throw new IllegalStateException("审计数据序列化失败", ex);
         }
-    }
-
-    public List<Map<String, Object>> none() {
-        return new ArrayList<>();
     }
 }
