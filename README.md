@@ -396,6 +396,10 @@ Limit
 | 同上 | `/api/meta/link-types/**`、`/api/meta/action-types/**` | 链接类型 / Action 类型 |
 | GET | `/api/meta/validate` | 重新校验当前元模型，返回全部错误（不改变运行中快照） |
 | GET | `/api/session` | 当前用户与角色（控制台显示用，只读） |
+| POST | `/api/objects/{objectId}/traverse` | 多跳遍历：深度≤3、每跳≤100，超出截断 |
+| POST | `/api/objects/aggregate` | 按一个属性分组 + count/sum/avg/min/max |
+| GET/POST | `/api/object-sets` | 对象集列表 / 保存（存条件不存结果） |
+| GET/DELETE | `/api/object-sets/{id}` | 查看 / 删除（只有创建者可删） |
 | POST/GET | `/api/datasources`、`/api/datasets` | 数据源（密码加密）/ 数据集 |
 | POST | `/api/ingest/object-types/{code}`、`/api/ingest/links`、`/api/ingest/derived`、`/api/ingest/all` | 采集 |
 | GET | `/api/ingest/stats` | 对象/属性/链接规模 |
@@ -431,7 +435,7 @@ Limit
 mvn test
 ```
 
-25 个用例，覆盖契约要求的 6 类：
+44 个用例，覆盖契约要求的 6 类，外加后续扩展的遍历/聚合/对象集/墓碑/删除检测：
 
 | 覆盖点 | 用例 | 断言重点 |
 |---|---|---|
@@ -442,6 +446,11 @@ mvn test
 | 查询下推 | `QueryPushdownTest.属性过滤翻译成_EXISTS_子查询并出现在_SQL_日志里` | 日志含 `exists (select 1 from obj_prop` 与 `f0.prop_key` |
 | 前置条件失败 | `ActionSemanticsTest.前置条件失败返回_422_且带_error_code` | 422 + `ORDER_DEPARTED` + 事务回滚（无 act_run） |
 | 控制台外壳 | `SessionUiTest` | 静态页匿名可打开、`/api/**` 仍 401、`/api/session` 返回角色 |
+| 链接墓碑 | `LinkTombstoneTest` | Action 删的链接重采不复活；重建时清墓碑 |
+| 删除检测 | `StaleDetectionTest` | 上游删行→标 stale→恢复→自动清除；本体对象不误标 |
+| 多跳遍历 | `TraversalTest` | 两跳 Delay→Flight→Airline；深度越界 400；viewer 穿透 403 |
+| 聚合 | `AggregateTest` | 分组+avg/max；带过滤；字符串 avg 400；多字段分组 400 |
+| 对象集 | `ObjectSetTest` | 保存后查询；类型不一致 400；未共享 403；只有 owner 能删 |
 
 另外还有：
 
