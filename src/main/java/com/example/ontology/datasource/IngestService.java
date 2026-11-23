@@ -139,6 +139,23 @@ public class IngestService {
         currentType = null;
     }
 
+    /**
+     * 采集后刷新统计信息。
+     *
+     * <p>不刷新会让 planner 继续按旧行数选执行计划：实测 20 万对象未 analyze 时首页查询 653ms，
+     * analyze 后 0.03ms。失败只影响查询计划，不影响数据，所以记日志即可。</p>
+     */
+    private void refreshStatistics() {
+        try {
+            var template = jdbc.getJdbcTemplate();
+            template.execute("analyze obj_object");
+            template.execute("analyze obj_prop");
+            template.execute("analyze obj_link");
+        } catch (RuntimeException ex) {
+            log.warn("采集后 ANALYZE 失败（数据不受影响，仅影响查询计划）: {}", ex.getMessage());
+        }
+    }
+
     // ------------------------------------------------------------------
     // 报告
     // ------------------------------------------------------------------
@@ -191,7 +208,9 @@ public class IngestService {
             beginProgress(estimateTypeRows(typeCode));
             currentType = typeCode;
             try {
-                return doIngestObjectType(typeCode);
+                IngestReport report = doIngestObjectType(typeCode);
+                refreshStatistics();
+                return report;
             } finally {
                 endProgress();
             }
@@ -213,7 +232,7 @@ public class IngestService {
         return withIngestLock("全量采集", () -> {
             beginProgress(estimateAllRows());
             try {
-                return tx.execute(status -> {
+                IngestAllReport report = tx.execute(status -> {
                     List<IngestReport> reports = new ArrayList<>();
                     for (ObjectTypeDef type : registry.objectTypes()) {
                         currentType = type.code();
@@ -223,6 +242,8 @@ public class IngestService {
                     DerivedReport derived = doRecomputeDerived();
                     return new IngestAllReport(reports, links, derived);
                 });
+                refreshStatistics();
+                return report;
             } finally {
                 endProgress();
             }
@@ -374,6 +395,12 @@ public class IngestService {
                     join %4$s t on t.%5$s = f.%6$s
                     join obj_object fo on fo.object_id = cast(:fromPrefix as text) || f.%1$s::text
                     join obj_object tobj on tobj.object_id = cast(:toPrefix as text) || t.%2$s::text
+                    where not exists (
+                        select 1 from obj_link_tombstone tb
+                        where tb.link_type = cast(:lt as text)
+                          and tb.from_object_id = cast(:fromPrefix as text) || f.%1$s::text
+                          and tb.to_object_id = cast(:toPrefix as text) || t.%2$s::text
+                    )
                     on conflict (link_type, from_object_id, to_object_id) do nothing
                     """.formatted(fromId, toId, fromTable, toTable, toField, fromField);
 

@@ -47,11 +47,83 @@ public abstract class BaseIntegrationTest {
     void resetDatabase() {
         api = new TestClient(rest, mapper);
         jdbc.execute("""
-                truncate table act_edit, act_run, obj_link, obj_prop, obj_object,
+                truncate table act_edit, act_run, obj_link_tombstone, obj_link, obj_prop, obj_object,
                 ont_definition_history, ont_definition restart identity cascade
                 """);
         jdbc.execute("truncate table ds_dataset, ds_source restart identity cascade");
         metamodel.reload();
+    }
+
+    // ------------------------------------------------------------------
+    // 航空域夹具（IngestTest 与 LinkTombstoneTest 共用）
+    // ------------------------------------------------------------------
+    protected long registerSource() {
+        TestClient.Resp resp = api.post("/api/datasources", java.util.Map.of(
+                "name", "test-src", "kind", "POSTGRES",
+                "host", TestDatabase.host(), "port", TestDatabase.port(),
+                "database", TestDatabase.database(), "schema", "airline_domain",
+                "username", TestDatabase.username(), "password", TestDatabase.password()));
+        assert resp.status() == 201;
+        return resp.at("id").asLong();
+    }
+
+    protected void registerDatasets(long sourceId) {
+        String[][] ds = {
+                {"ds_airport", "airport", "code"},
+                {"ds_flight", "flight", "flight_no"},
+                {"ds_aircraft", "aircraft", "tail_no"},
+                {"ds_airline", "airline", "code"},
+                {"ds_delay", "delay", "id"}
+        };
+        for (String[] row : ds) {
+            TestClient.Resp resp = api.post("/api/datasets", java.util.Map.of(
+                    "id", row[0], "name", row[0], "sourceId", sourceId,
+                    "schema", "airline_domain", "table", row[1], "keyFields", row[2]));
+            assert resp.status() == 201;
+        }
+    }
+
+    protected void createBaseTypes() {
+        api.post("/api/meta/object-types", TestModel.objectType("Airport", "ds_airport",
+                "code", "name", java.util.List.of(
+                        TestModel.prop("code", "string", "source", "code", true, null),
+                        TestModel.prop("name", "string", "source", "name", false, null),
+                        TestModel.prop("capacity", "long", "source", "capacity", false, null),
+                        TestModel.prop("weather", "string", "derived", null, false, "src:weather_code"))));
+
+        api.post("/api/meta/object-types", TestModel.objectType("Flight", "ds_flight",
+                "flightNo", "flightNo", java.util.List.of(
+                        TestModel.prop("flightNo", "string", "source", "flight_no", true, null),
+                        TestModel.prop("departure", "string", "source", "departure", false, null),
+                        TestModel.prop("arrival", "string", "source", "arrival", false, null),
+                        TestModel.prop("status", "string", "ontology"),
+                        TestModel.prop("reason", "string", "ontology"))));
+
+        api.post("/api/meta/object-types", TestModel.objectType("Aircraft", "ds_aircraft",
+                "tailNo", "model", java.util.List.of(
+                        TestModel.prop("tailNo", "string", "source", "tail_no", true, null),
+                        TestModel.prop("model", "string", "source", "model", false, null),
+                        TestModel.prop("capacity", "integer", "source", "capacity", false, null))));
+
+        api.post("/api/meta/object-types", TestModel.objectType("Airline", "ds_airline",
+                "code", "name", java.util.List.of(
+                        TestModel.prop("code", "string", "source", "code", true, null),
+                        TestModel.prop("name", "string", "source", "name", false, null))));
+
+        api.post("/api/meta/object-types", TestModel.objectType("Delay", "ds_delay",
+                "id", "cause", java.util.List.of(
+                        TestModel.prop("id", "string", "source", "id", true, null),
+                        TestModel.prop("minutes", "integer", "source", "minutes", false, null),
+                        TestModel.prop("cause", "string", "source", "cause", false, null))));
+    }
+
+    protected void createBaseLinks() {
+        api.post("/api/meta/link-types", TestModel.linkType("OperatedBy", "Flight", "Airline",
+                "N:M", "carrier_code", "code"));
+        api.post("/api/meta/link-types", TestModel.linkType("FlownBy", "Flight", "Aircraft",
+                "N:1", "tail_no", "tail_no"));
+        api.post("/api/meta/link-types", TestModel.linkType("DelayedBy", "Flight", "Delay",
+                "1:1", "delay_id", "id"));
     }
 
     // ------------------------------------------------------------------

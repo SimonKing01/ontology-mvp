@@ -226,35 +226,67 @@ public class ObjectStore {
     // ------------------------------------------------------------------
     public void insertLink(String linkType, String fromObjectId, String toObjectId, Map<String, Object> properties) {
         String linkId = linkType + ":" + businessKeyOf(fromObjectId) + "->" + businessKeyOf(toObjectId);
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("lid", linkId)
+                .addValue("lt", linkType)
+                .addValue("from", fromObjectId)
+                .addValue("to", toObjectId)
+                .addValue("props", toJson(properties), Types.VARCHAR);
+        // Action 主动重建这条链接：清掉墓碑，否则下次采集又会把它当"已删除"
+        jdbc.update("""
+                        delete from obj_link_tombstone
+                        where link_type = :lt and from_object_id = :from and to_object_id = :to
+                        """,
+                new MapSqlParameterSource("lt", linkType).addValue("from", fromObjectId).addValue("to", toObjectId));
         jdbc.update("""
                         insert into obj_link (link_id, link_type, from_object_id, to_object_id, properties)
                         values (:lid, :lt, :from, :to, cast(:props as jsonb))
                         on conflict (link_type, from_object_id, to_object_id) do update
                         set properties = excluded.properties
-                        """,
-                new MapSqlParameterSource()
-                        .addValue("lid", linkId)
-                        .addValue("lt", linkType)
-                        .addValue("from", fromObjectId)
-                        .addValue("to", toObjectId)
-                        .addValue("props", toJson(properties), Types.VARCHAR));
+                        """, params);
     }
 
-    public void deleteLink(String linkType, String fromObjectId, String toObjectId) {
+    public void deleteLink(String linkType, String fromObjectId, String toObjectId, String actor, String runId) {
         jdbc.update("""
-                        delete from obj_link where link_type = :lt and from_object_id = :from and to_object_id = :to
+                        with removed as (
+                            delete from obj_link
+                            where link_type = :lt and from_object_id = :from and to_object_id = :to
+                            returning link_id, link_type, from_object_id, to_object_id
+                        )
+                        insert into obj_link_tombstone (link_id, link_type, from_object_id, to_object_id, deleted_by, run_id)
+                        select link_id, link_type, from_object_id, to_object_id, :actor, :run from removed
+                        on conflict (link_id) do nothing
                         """,
-                new MapSqlParameterSource("lt", linkType).addValue("from", fromObjectId).addValue("to", toObjectId));
+                new MapSqlParameterSource("lt", linkType).addValue("from", fromObjectId).addValue("to", toObjectId)
+                        .addValue("actor", actor).addValue("run", runId));
     }
 
-    public void deleteLinksOfType(String linkType, String fromObjectId) {
-        jdbc.update("delete from obj_link where link_type = :lt and from_object_id = :from",
-                new MapSqlParameterSource("lt", linkType).addValue("from", fromObjectId));
+    public void deleteLinksOfType(String linkType, String fromObjectId, String actor, String runId) {
+        jdbc.update("""
+                        with removed as (
+                            delete from obj_link where link_type = :lt and from_object_id = :from
+                            returning link_id, link_type, from_object_id, to_object_id
+                        )
+                        insert into obj_link_tombstone (link_id, link_type, from_object_id, to_object_id, deleted_by, run_id)
+                        select link_id, link_type, from_object_id, to_object_id, :actor, :run from removed
+                        on conflict (link_id) do nothing
+                        """,
+                new MapSqlParameterSource("lt", linkType).addValue("from", fromObjectId)
+                        .addValue("actor", actor).addValue("run", runId));
     }
 
-    public void deleteIncomingLinksOfType(String linkType, String toObjectId) {
-        jdbc.update("delete from obj_link where link_type = :lt and to_object_id = :to",
-                new MapSqlParameterSource("lt", linkType).addValue("to", toObjectId));
+    public void deleteIncomingLinksOfType(String linkType, String toObjectId, String actor, String runId) {
+        jdbc.update("""
+                        with removed as (
+                            delete from obj_link where link_type = :lt and to_object_id = :to
+                            returning link_id, link_type, from_object_id, to_object_id
+                        )
+                        insert into obj_link_tombstone (link_id, link_type, from_object_id, to_object_id, deleted_by, run_id)
+                        select link_id, link_type, from_object_id, to_object_id, :actor, :run from removed
+                        on conflict (link_id) do nothing
+                        """,
+                new MapSqlParameterSource("lt", linkType).addValue("to", toObjectId)
+                        .addValue("actor", actor).addValue("run", runId));
     }
 
     public boolean linkExists(String linkType, String fromObjectId, String toObjectId) {

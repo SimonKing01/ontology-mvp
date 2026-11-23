@@ -334,11 +334,12 @@ public class ActionEngine {
             return;
         }
 
+        String actor = authorizer.currentActor();
         if (otherId == null) {
             if (typeIsFrom) {
-                store.deleteLinksOfType(link.code(), row.objectId());
+                store.deleteLinksOfType(link.code(), row.objectId(), actor, runId);
             } else {
-                store.deleteIncomingLinksOfType(link.code(), row.objectId());
+                store.deleteIncomingLinksOfType(link.code(), row.objectId(), actor, runId);
             }
             audit.insertEdit(runId, row.objectId(), link.code(), null, null, "LINK_DELETE");
             editLog.add(editEntry(row.objectId(), link.code(), null, null, "LINK_DELETE"));
@@ -346,7 +347,7 @@ public class ActionEngine {
         }
         String from = typeIsFrom ? row.objectId() : otherId;
         String to = typeIsFrom ? otherId : row.objectId();
-        store.deleteLink(link.code(), from, to);
+        store.deleteLink(link.code(), from, to, actor, runId);
         audit.insertEdit(runId, row.objectId(), link.code(), otherId, null, "LINK_DELETE");
         editLog.add(editEntry(row.objectId(), link.code(), otherId, null, "LINK_DELETE"));
     }

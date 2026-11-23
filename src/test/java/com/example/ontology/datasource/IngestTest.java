@@ -23,8 +23,8 @@ class IngestTest extends BaseIntegrationTest {
     void 采集全链路与重采的幂等性() {
         long sourceId = registerSource();
         registerDatasets(sourceId);
-        createTypes();
-        createLinks();
+        createBaseTypes();
+        createBaseLinks();
 
         // 两阶段引入：先有类型与链接，再补跨类型派生属性（revision -> 2）
         List<Map<String, Object>> props = new ArrayList<>(List.of(
@@ -93,81 +93,5 @@ class IngestTest extends BaseIntegrationTest {
         TestClient.Resp after = api.get("/api/objects/Flight:MU5101");
         assertThat(after.at("properties").path("status").asText()).isEqualTo("CANCELLED");
         assertThat(after.at("properties").path("departure").asText()).isEqualTo("PEK");
-    }
-
-    // ------------------------------------------------------------------
-    private long registerSource() {
-        TestClient.Resp resp = api.post("/api/datasources", Map.of(
-                "name", "test-src", "kind", "POSTGRES",
-                "host", TestDatabase.host(), "port", TestDatabase.port(),
-                "database", TestDatabase.database(), "schema", "airline_domain",
-                "username", TestDatabase.username(), "password", TestDatabase.password()));
-        assertThat(resp.status()).isEqualTo(201);
-        assertThat(resp.body().has("password")).isFalse();
-        return resp.at("id").asLong();
-    }
-
-    private void registerDatasets(long sourceId) {
-        String[][] ds = {
-                {"ds_airport", "airport", "code"},
-                {"ds_flight", "flight", "flight_no"},
-                {"ds_aircraft", "aircraft", "tail_no"},
-                {"ds_airline", "airline", "code"},
-                {"ds_delay", "delay", "id"}
-        };
-        for (String[] row : ds) {
-            TestClient.Resp resp = api.post("/api/datasets", Map.of(
-                    "id", row[0], "name", row[0], "sourceId", sourceId,
-                    "schema", "airline_domain", "table", row[1], "keyFields", row[2]));
-            assertThat(resp.status()).isEqualTo(201);
-        }
-    }
-
-    private void createTypes() {
-        assertThat(api.post("/api/meta/object-types", TestModel.objectType("Airport", "ds_airport",
-                "code", "name", List.of(
-                        TestModel.prop("code", "string", "source", "code", true, null),
-                        TestModel.prop("name", "string", "source", "name", false, null),
-                        TestModel.prop("capacity", "long", "source", "capacity", false, null),
-                        TestModel.prop("weather", "string", "derived", null, false, "src:weather_code"))))
-                .status()).isEqualTo(201);
-
-        assertThat(api.post("/api/meta/object-types", TestModel.objectType("Flight", "ds_flight",
-                "flightNo", "flightNo", List.of(
-                        TestModel.prop("flightNo", "string", "source", "flight_no", true, null),
-                        TestModel.prop("departure", "string", "source", "departure", false, null),
-                        TestModel.prop("arrival", "string", "source", "arrival", false, null),
-                        TestModel.prop("status", "string", "ontology"),
-                        TestModel.prop("reason", "string", "ontology"))))
-                .status()).isEqualTo(201);
-
-        assertThat(api.post("/api/meta/object-types", TestModel.objectType("Aircraft", "ds_aircraft",
-                "tailNo", "model", List.of(
-                        TestModel.prop("tailNo", "string", "source", "tail_no", true, null),
-                        TestModel.prop("model", "string", "source", "model", false, null),
-                        TestModel.prop("capacity", "integer", "source", "capacity", false, null))))
-                .status()).isEqualTo(201);
-
-        assertThat(api.post("/api/meta/object-types", TestModel.objectType("Airline", "ds_airline",
-                "code", "name", List.of(
-                        TestModel.prop("code", "string", "source", "code", true, null),
-                        TestModel.prop("name", "string", "source", "name", false, null))))
-                .status()).isEqualTo(201);
-
-        assertThat(api.post("/api/meta/object-types", TestModel.objectType("Delay", "ds_delay",
-                "id", "cause", List.of(
-                        TestModel.prop("id", "string", "source", "id", true, null),
-                        TestModel.prop("minutes", "integer", "source", "minutes", false, null),
-                        TestModel.prop("cause", "string", "source", "cause", false, null))))
-                .status()).isEqualTo(201);
-    }
-
-    private void createLinks() {
-        assertThat(api.post("/api/meta/link-types", TestModel.linkType("OperatedBy", "Flight", "Airline",
-                "N:M", "carrier_code", "code")).status()).isEqualTo(201);
-        assertThat(api.post("/api/meta/link-types", TestModel.linkType("FlownBy", "Flight", "Aircraft",
-                "N:1", "tail_no", "tail_no")).status()).isEqualTo(201);
-        assertThat(api.post("/api/meta/link-types", TestModel.linkType("DelayedBy", "Flight", "Delay",
-                "1:1", "delay_id", "id")).status()).isEqualTo(201);
     }
 }

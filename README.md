@@ -494,7 +494,7 @@ TEST_DB_URL=jdbc:postgresql://localhost:55434/ontology_test mvn test
 1. **`CreateFlight` 只能初始化 ontology 状态**：source 属性（`flightNo/departure/arrival`）不得由 Action 写，因此新建对象是"只有身份 + status 的壳"，source 属性等上游采集回填。若要做"本体为主数据源"的新建流程，需要引入写回上游的副作用（下一期）。
 2. **没有流程类 Action（如 `DepartFlight`）**：`DEPARTED` 状态在 MVP 里不可达，`CancelFlight` 的 `ORDER_DEPARTED` 前置条件由测试夹具（直接写库造 DEPARTED）覆盖，`demo.sh` 用 `AssignAircraft` 的排班冲突演示 422。
 3. **失败执行不落审计**：契约要求 1~8 步同事务，回滚即无痕，所以 `act_run.status=FAILED` 目前只在预留的补偿路径使用。要记录失败尝试，需要 `REQUIRES_NEW` 的独立审计事务（下一期）。
-4. **链接与采集的竞争**：`Action` 删掉的链接，下次全量采集会按上游事实重建（`on conflict do nothing` 只能防重复，不能防"复活"）。下一期给链接加归属/墓碑。
+4. ~~**链接与采集的竞争**：`Action` 删掉的链接，下次全量采集会按上游事实重建。~~ **已修复**：`obj_link_tombstone` 记录被 Action 删除的三元组，采集物化时 `not exists` 跳过；Action 主动重建同一条链接会清除墓碑。见 `V3__link_tombstone.sql` 与 `LinkTombstoneTest`。
 5. **元模型循环引用需两阶段引入**：`Flight.delayMinutes` 依赖 `DelayedBy`，而 `DelayedBy` 依赖 `Flight`，所以先建类型与链接、再 `PUT` 补派生属性（正好演示 revision 1→2）。要一次成型需要"多定义草稿 + 原子发布"。
 6. **单字段排序**、多值属性不支持过滤/排序/前置条件、不支持跨数据源链接——都是刻意收窄，避免语义含糊。
 7. **演示控制台不在 MVP 范围**：静态页 + 一个只读 session 接口；Basic 凭据存 `sessionStorage`，生产必须换成正式登录态。
