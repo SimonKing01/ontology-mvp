@@ -1,5 +1,7 @@
-package com.example.ontology.objectdata;
+package com.example.ontology.objectdata.query;
 
+import com.example.ontology.objectdata.store.ObjectRow;
+import com.example.ontology.objectdata.store.ObjectStore;
 import com.example.ontology.common.Cursor;
 import com.example.ontology.common.OntologyException;
 import com.example.ontology.common.PageResult;
@@ -7,11 +9,11 @@ import com.example.ontology.common.PropertyType;
 import com.example.ontology.meta.MetamodelRegistry;
 import com.example.ontology.meta.model.ObjectTypeDef;
 import com.example.ontology.meta.model.PropertyDef;
-import com.example.ontology.objectdata.ObjectQueryDtos.CountRequest;
-import com.example.ontology.objectdata.ObjectQueryDtos.FilterDef;
-import com.example.ontology.objectdata.ObjectQueryDtos.ObjectItem;
-import com.example.ontology.objectdata.ObjectQueryDtos.QueryRequest;
-import com.example.ontology.objectdata.ObjectQueryDtos.SortDef;
+import com.example.ontology.objectdata.query.ObjectQueryDtos.CountRequest;
+import com.example.ontology.objectdata.query.ObjectQueryDtos.FilterDef;
+import com.example.ontology.objectdata.query.ObjectQueryDtos.ObjectItem;
+import com.example.ontology.objectdata.query.ObjectQueryDtos.QueryRequest;
+import com.example.ontology.objectdata.query.ObjectQueryDtos.SortDef;
 import com.example.ontology.security.OntologyAuthorizer;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;

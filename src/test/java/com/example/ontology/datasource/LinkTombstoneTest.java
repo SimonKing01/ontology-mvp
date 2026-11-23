@@ -1,6 +1,6 @@
 package com.example.ontology.datasource;
 
-import com.example.ontology.objectdata.ObjectStore;
+import com.example.ontology.objectdata.store.ObjectStore;
 import com.example.ontology.support.BaseIntegrationTest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

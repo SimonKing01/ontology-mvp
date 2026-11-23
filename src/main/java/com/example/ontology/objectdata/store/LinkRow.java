@@ -1,4 +1,4 @@
-package com.example.ontology.objectdata;
+package com.example.ontology.objectdata.store;
 
 /**
  * obj_link 一行。

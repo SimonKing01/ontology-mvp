@@ -1,4 +1,4 @@
-package com.example.ontology.objectdata;
+package com.example.ontology.objectdata.store;
 
 import com.example.ontology.meta.model.ObjectTypeDef;
 import com.example.ontology.meta.model.PropertyDef;

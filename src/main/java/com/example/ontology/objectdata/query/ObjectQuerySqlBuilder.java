@@ -1,12 +1,12 @@
-package com.example.ontology.objectdata;
+package com.example.ontology.objectdata.query;
 
 import com.example.ontology.common.Cursor;
 import com.example.ontology.common.OntologyException;
 import com.example.ontology.common.PropertyType;
 import com.example.ontology.meta.model.ObjectTypeDef;
 import com.example.ontology.meta.model.PropertyDef;
-import com.example.ontology.objectdata.ObjectQueryDtos.FilterDef;
-import com.example.ontology.objectdata.ObjectQueryDtos.SortDef;
+import com.example.ontology.objectdata.query.ObjectQueryDtos.FilterDef;
+import com.example.ontology.objectdata.query.ObjectQueryDtos.SortDef;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;

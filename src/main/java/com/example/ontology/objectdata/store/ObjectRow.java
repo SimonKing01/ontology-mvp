@@ -1,4 +1,4 @@
-package com.example.ontology.objectdata;
+package com.example.ontology.objectdata.store;
 
 import java.time.Instant;
 

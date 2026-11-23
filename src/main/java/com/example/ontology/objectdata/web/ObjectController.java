@@ -1,10 +1,13 @@
-package com.example.ontology.objectdata;
+package com.example.ontology.objectdata.web;
 
+import com.example.ontology.objectdata.query.LinkQueryService;
+import com.example.ontology.objectdata.query.ObjectQueryDtos;
+import com.example.ontology.objectdata.query.ObjectQueryService;
 import com.example.ontology.common.PageResult;
-import com.example.ontology.objectdata.ObjectQueryDtos.CountRequest;
-import com.example.ontology.objectdata.ObjectQueryDtos.LinkItem;
-import com.example.ontology.objectdata.ObjectQueryDtos.ObjectItem;
-import com.example.ontology.objectdata.ObjectQueryDtos.QueryRequest;
+import com.example.ontology.objectdata.query.ObjectQueryDtos.CountRequest;
+import com.example.ontology.objectdata.query.ObjectQueryDtos.LinkItem;
+import com.example.ontology.objectdata.query.ObjectQueryDtos.ObjectItem;
+import com.example.ontology.objectdata.query.ObjectQueryDtos.QueryRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.GetMapping;

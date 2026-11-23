@@ -6,8 +6,8 @@ import com.example.ontology.meta.model.ActionTypeDef;
 import com.example.ontology.meta.model.ObjectTypeDef;
 import com.example.ontology.meta.model.PreconditionDef;
 import com.example.ontology.meta.model.PropertyDef;
-import com.example.ontology.objectdata.ObjectRow;
-import com.example.ontology.objectdata.ObjectStore;
+import com.example.ontology.objectdata.store.ObjectRow;
+import com.example.ontology.objectdata.store.ObjectStore;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;

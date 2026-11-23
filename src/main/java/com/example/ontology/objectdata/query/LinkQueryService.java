@@ -1,10 +1,13 @@
-package com.example.ontology.objectdata;
+package com.example.ontology.objectdata.query;
 
+import com.example.ontology.objectdata.store.LinkRow;
+import com.example.ontology.objectdata.store.ObjectRow;
+import com.example.ontology.objectdata.store.ObjectStore;
 import com.example.ontology.common.OntologyException;
 import com.example.ontology.common.PageResult;
 import com.example.ontology.meta.MetamodelRegistry;
 import com.example.ontology.meta.model.LinkTypeDef;
-import com.example.ontology.objectdata.ObjectQueryDtos.LinkItem;
+import com.example.ontology.objectdata.query.ObjectQueryDtos.LinkItem;
 import com.example.ontology.security.OntologyAuthorizer;
 import org.springframework.stereotype.Service;
 
