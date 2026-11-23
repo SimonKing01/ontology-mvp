@@ -6,6 +6,7 @@ import {
     $, el, fmtValue, fmtTime, session, SESSION_KEY, api, toast,
     state, typeOf, propDef, currentAction, setUnauthorizedHandler
 } from './core.js';
+import { initTraverse, renderTraversePane } from './views/traverse.js';
 
 (() => {
     'use strict';
@@ -1043,7 +1044,9 @@ import {
         });
         $('#detail-pane').classList.toggle('hidden', name !== 'detail');
         $('#action-pane').classList.toggle('hidden', name !== 'action');
+        $('#traverse-pane').classList.toggle('hidden', name !== 'traverse');
         if (name === 'action') renderActionPanel();
+        if (name === 'traverse') renderTraversePane($('#traverse-pane'));
     }
 
     /* ---------------------------------------------------------------- 事件 */
@@ -1148,6 +1151,7 @@ import {
     function boot() {
         bindLogin();
         bindApp();
+        initTraverse({ selectObject });
         document.querySelectorAll('.view-btn').forEach(b =>
             b.addEventListener('click', () => setView(b.dataset.view)));
         const saved = sessionStorage.getItem(SESSION_KEY);

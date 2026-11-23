@@ -1,6 +1,7 @@
 package com.example.ontology.objectdata.web;
 
 import com.example.ontology.objectdata.query.LinkQueryService;
+import com.example.ontology.objectdata.query.TraversalService;
 import com.example.ontology.objectdata.query.ObjectQueryDtos;
 import com.example.ontology.objectdata.query.ObjectQueryService;
 import com.example.ontology.common.PageResult;
@@ -33,10 +34,13 @@ public class ObjectController {
 
     private final ObjectQueryService queryService;
     private final LinkQueryService linkQueryService;
+    private final TraversalService traversalService;
 
-    public ObjectController(ObjectQueryService queryService, LinkQueryService linkQueryService) {
+    public ObjectController(ObjectQueryService queryService, LinkQueryService linkQueryService,
+                            TraversalService traversalService) {
         this.queryService = queryService;
         this.linkQueryService = linkQueryService;
+        this.traversalService = traversalService;
     }
 
     @PostMapping("/query")
@@ -66,5 +70,12 @@ public class ObjectController {
                                       @RequestParam(required = false) Integer pageSize,
                                       @RequestParam(required = false) String cursor) {
         return linkQueryService.links(objectId, linkType, direction, pageSize, cursor);
+    }
+
+    @PostMapping("/{objectId}/traverse")
+    @Operation(summary = "多跳遍历：按链接路径走 N 跳（深度≤3，每跳≤100，超出截断）")
+    public TraversalService.Result traverse(@PathVariable String objectId,
+                                            @RequestBody TraversalService.Request request) {
+        return traversalService.traverse(objectId, request.path(), request.limit());
     }
 }

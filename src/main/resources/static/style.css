@@ -1030,3 +1030,40 @@ body.busy .progress { opacity: 1; width: 78%; }
 /* 上游已删除的对象：整行降透明度，不隐藏（用户需要知道它存在过） */
 tr.row.stale td { opacity: .55; }
 tr.row.stale .obj-id { text-decoration: line-through; }
+
+/* =====================================================================
+   路径探索
+   ===================================================================== */
+.trav-start { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; font-size: 11.5px; }
+.trav-steps { display: flex; flex-direction: column; gap: 6px; }
+.trav-step { display: grid; grid-template-columns: 22px minmax(0, 1fr) 92px 26px; gap: 6px; align-items: center; }
+.trav-idx {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: var(--panel-2); display: grid; place-items: center;
+    font-size: 10.5px; color: var(--muted); font-variant-numeric: tabular-nums;
+}
+.trav-step select { height: 28px; font-size: 11.5px; }
+.trav-del {
+    width: 26px; height: 26px; border: 1px solid var(--line);
+    border-radius: 6px; background: #fff; color: var(--faint); cursor: pointer;
+}
+.trav-del:hover { color: var(--red); border-color: var(--red-line); background: var(--red-weak); }
+.trav-actions { display: flex; gap: 8px; margin: 10px 0; }
+.trav-summary { display: flex; gap: 8px; align-items: center; font-size: 11.5px; color: var(--muted); margin-bottom: 8px; }
+.trav-hop { border: 1px solid var(--line); border-radius: 9px; padding: 8px 10px; margin-bottom: 8px; background: var(--panel-2); }
+.trav-hop-head { display: flex; gap: 8px; align-items: center; font-size: 11px; margin-bottom: 6px; }
+.trav-hop-head .mono { font-family: var(--mono); color: var(--muted); font-size: 10.5px; }
+.trav-hop-no { font-weight: 600; color: var(--text); }
+.trav-hop-count { margin-left: auto; color: var(--faint); font-variant-numeric: tabular-nums; }
+.trav-nodes { display: flex; flex-wrap: wrap; gap: 6px; }
+.trav-node {
+    display: inline-flex; align-items: center; gap: 6px; height: 26px;
+    padding: 0 9px; border: 1px solid var(--line-strong); border-radius: 999px;
+    background: #fff; cursor: pointer; font-size: 11.5px; color: var(--text);
+}
+.trav-node:hover { border-color: var(--primary-line); color: var(--primary); }
+.trav-node-type { font-family: var(--mono); font-size: 10px; color: var(--faint); }
+.trav-error {
+    border: 1px solid var(--red-line); background: var(--red-weak);
+    color: #912018; border-radius: 8px; padding: 8px 10px; font-size: 11.5px;
+}

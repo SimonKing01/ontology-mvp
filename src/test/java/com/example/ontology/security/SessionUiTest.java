@@ -42,6 +42,9 @@ class SessionUiTest extends BaseIntegrationTest {
         ResponseEntity<String> coreScript = rest.getForEntity("/core.js", String.class);
         assertThat(coreScript.getStatusCode().value()).isEqualTo(200);
 
+        ResponseEntity<String> viewScript = rest.getForEntity("/views/traverse.js", String.class);
+        assertThat(viewScript.getStatusCode().value()).isEqualTo(200);
+
         ResponseEntity<String> count = rest.getForEntity("/api/objects/count", String.class);
         assertThat(count.getStatusCode().value()).isEqualTo(401);
     }
