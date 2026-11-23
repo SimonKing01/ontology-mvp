@@ -119,6 +119,59 @@ src/main/resources/static/  演示控制台（index.html / app.js / style.css，
 
 > 两个事务管理器是刻意的：JPA 只服务元模型/数据源配置（`transactionManager`），Action 与采集用显式 JDBC 事务（`jdbcTxManager`），保证 `obj_*` 与 `act_*` 五张表共用同一个物理连接。见 `config/TransactionConfig.java:28`。
 
+### 3.1 对象与关系配置在哪？
+
+**不在 Java 代码里，也不在 YAML 里。** 主代码里搜 `Flight` / `FlownBy` 是 **0 次**；它们是**元模型数据**，存在数据库：
+
+```
+ont_definition(kind, code, revision, payload jsonb)       -- 当前版本
+ont_definition_history(kind, code, revision, payload)     -- 旧版本
+```
+
+当前演示库有 12 条：5 个 `OBJECT_TYPE`、3 个 `LINK_TYPE`、4 个 `ACTION_TYPE`（`Flight` 已经是 revision 2）。
+写入只有三条 API（`MetaController`），首次由 `demo.sh` 第 3~6 节的 curl JSON 创建：
+
+```
+POST/PUT /api/meta/object-types
+POST/PUT /api/meta/link-types
+POST/PUT /api/meta/action-types      # 关系的增删也在这里：createLink / deleteLink
+GET      /api/meta/.../{code}?revision=N
+```
+
+**对象怎么映射到数据**：
+
+```
+ObjectType.datasetId ──▶ ds_dataset(schema_name, table_name) ──▶ ds_source(host/db/密码密文)
+        │
+        └─ properties[].sourcePath ──▶ 源表列名（只有 owner=source 才有）
+```
+
+**关系怎么来的**：`LinkType.fromField / toField` 是两侧的**源列名**，采集时在源库 JOIN 物化进 `obj_link`：
+
+```json
+{"code":"FlownBy","fromTypeCode":"Flight","toTypeCode":"Aircraft","cardinality":"N:1",
+ "fromField":"tail_no","toField":"tail_no"}
+```
+
+```sql
+insert into obj_link ...
+select 'FlownBy:' || f.tail_no || '->' || t.tail_no, 'FlownBy',
+       'Flight:' || f.tail_no, 'Aircraft:' || t.tail_no
+from airline_domain.flight f
+join airline_domain.aircraft t on t.tail_no = f.tail_no
+```
+
+所以关系不是运行时猜的，也不是手写的边表，而是"声明源列 → 采集物化"。Action 里的 `createLink` / `deleteLink` 改的是这张物化表。
+
+**三种查看方式**：
+
+1. 控制台左侧类型列表（只读）；
+2. `curl -u admin:admin localhost:8080/api/meta/object-types/Flight`；
+3. `select jsonb_pretty(payload) from ont_definition where code = 'FlownBy';`
+
+修改规则：`code` 创建后不可改；改定义走 `PUT`，`revision + 1`，旧版本进历史表；保存前与启动时都会全量校验（R7）。
+`application.yml` 里只有时区、加密主密钥、角色 ACL——**不是**对象/关系定义。
+
 ---
 
 ## 4. 状态归属（本项目最重要的设计）
