@@ -1026,3 +1026,7 @@ body.busy .progress { opacity: 1; width: 78%; }
     color: var(--faint);
     font-variant-numeric: tabular-nums;
 }
+
+/* 上游已删除的对象：整行降透明度，不隐藏（用户需要知道它存在过） */
+tr.row.stale td { opacity: .55; }
+tr.row.stale .obj-id { text-decoration: line-through; }

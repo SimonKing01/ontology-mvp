@@ -76,7 +76,7 @@ public class ObjectQuerySqlBuilder {
     public BuiltQuery buildSelect(ObjectTypeDef type, List<FilterDef> filters, SortSpec sort,
                                   Cursor.Token cursor, int limit) {
         StringBuilder sql = new StringBuilder("""
-                select o.object_id, o.type_code, o.business_key, o.row_version, o.state_owner, o.title""");
+                select o.object_id, o.type_code, o.business_key, o.row_version, o.state_owner, o.title, o.stale""");
         if (sort != null) {
             sql.append(", ").append(sort.expr()).append(" as sort_value");
         }

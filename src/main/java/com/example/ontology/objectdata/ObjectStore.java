@@ -92,20 +92,50 @@ public class ObjectStore {
      *
      * @return true 表示新建
      */
-    public boolean upsertIngestedObject(String objectId, String typeCode, String businessKey, String title) {
+    public boolean upsertIngestedObject(String objectId, String typeCode, String businessKey, String title,
+                                        long batchId) {
         List<Boolean> inserted = jdbc.query("""
-                        insert into obj_object (object_id, type_code, business_key, row_version, state_owner, title, created_at, updated_at)
-                        values (:id, :type, :bk, 0, 'source', :title, now(), now())
-                        on conflict (object_id) do update set title = excluded.title, updated_at = now()
+                        insert into obj_object (object_id, type_code, business_key, row_version, state_owner, title,
+                                                last_batch, stale, created_at, updated_at)
+                        values (:id, :type, :bk, 0, 'source', :title, :batch, false, now(), now())
+                        on conflict (object_id) do update
+                        set title = excluded.title,
+                            last_batch = excluded.last_batch,
+                            stale = false,
+                            updated_at = now()
                         returning (xmax = 0) as inserted
                         """,
                 new MapSqlParameterSource()
                         .addValue("id", objectId)
                         .addValue("type", typeCode)
                         .addValue("bk", businessKey)
-                        .addValue("title", title, Types.VARCHAR),
+                        .addValue("title", title, Types.VARCHAR)
+                        .addValue("batch", batchId),
                 (rs, i) -> rs.getBoolean("inserted"));
         return !inserted.isEmpty() && inserted.get(0);
+    }
+
+    /**
+     * 把本批次没扫到的对象标记为 stale（上游已删除或超出 maxRows）。
+     *
+     * <p>只处理 {@code state_owner='source'} 的对象：Action 创建的对象不来自上游，
+     * 不该因为"这次采集没扫到"而被判失效。</p>
+     */
+    public int markStale(String typeCode, long batchId) {
+        return jdbc.update("""
+                        update obj_object set stale = true
+                        where type_code = :type
+                          and state_owner = 'source'
+                          and (last_batch is null or last_batch <> :batch)
+                        """,
+                new MapSqlParameterSource("type", typeCode).addValue("batch", batchId));
+    }
+
+    /** 该对象是否已在上游消失（采集批次没扫到）。 */
+    public boolean isStale(String objectId) {
+        Boolean b = jdbc.queryForObject("select stale from obj_object where object_id = :id",
+                Map.of("id", objectId), Boolean.class);
+        return b != null && b;
     }
 
     /** Action 创建对象（state_owner=ontology：这条记录由本体产生，不来自上游）。 */

@@ -40,6 +40,7 @@ public final class ObjectQueryDtos {
             long version,
             String stateOwner,
             String title,
+            boolean stale,
             Map<String, Object> properties
     ) {
     }

@@ -76,6 +76,7 @@ public class IngestService {
     private volatile boolean running = false;
     private volatile long startedAt = 0L;
     private volatile String currentType = null;
+    private volatile long currentBatch = 0L;
 
     public Map<String, Object> progress() {
         long processed = processedRows.get();
@@ -130,6 +131,7 @@ public class IngestService {
         processedRows.set(0L);
         totalRows.set(total);
         startedAt = System.currentTimeMillis();
+        currentBatch = startedAt;
         currentType = null;
         running = true;
     }
@@ -160,7 +162,7 @@ public class IngestService {
     // 报告
     // ------------------------------------------------------------------
     public record IngestReport(String typeCode, String datasetId, int readRows, int created, int updated,
-                               int skipped, int propsWritten) {
+                               int skipped, int propsWritten, int staleMarked) {
     }
 
     public record LinkReport(int linkTypes, int linksCreated) {
@@ -278,7 +280,7 @@ public class IngestService {
             }
             String objectId = ObjectRow.idOf(type.code(), businessKey);
             String title = resolveTitle(type, row, businessKey);
-            if (store.upsertIngestedObject(objectId, type.code(), businessKey, title)) {
+            if (store.upsertIngestedObject(objectId, type.code(), businessKey, title, currentBatch)) {
                 created++;
             } else {
                 updated++;
@@ -303,8 +305,9 @@ public class IngestService {
             processedRows.incrementAndGet();
         }
 
+        int staleMarked = store.markStale(type.code(), currentBatch);
         IngestReport report = new IngestReport(type.code(), type.datasetId(), rows.size(), created, updated,
-                skipped, propsWritten);
+                skipped, propsWritten, staleMarked);
         log.info("采集完成 {}", report);
         return report;
     }

@@ -56,7 +56,7 @@ public class ObjectQueryService {
 
     /** 查询结果的对象头（含排序键，用于生成游标）。 */
     private record Head(String objectId, String typeCode, String businessKey, long version,
-                        String stateOwner, String title, Object sortValue) {
+                        String stateOwner, String title, boolean stale, Object sortValue) {
     }
 
     public PageResult<ObjectItem> query(QueryRequest request) {
@@ -94,6 +94,7 @@ public class ObjectQueryService {
                 rs.getLong("row_version"),
                 rs.getString("state_owner"),
                 rs.getString("title"),
+                rs.getBoolean("stale"),
                 sort == null ? null : rs.getObject("sort_value")));
 
         boolean hasMore = rows.size() > pageSize;
@@ -105,7 +106,7 @@ public class ObjectQueryService {
         List<ObjectItem> items = new ArrayList<>(page.size());
         for (Head head : page) {
             items.add(new ObjectItem(head.objectId(), head.typeCode(), head.businessKey(), head.version(),
-                    head.stateOwner(), head.title(), project(fields, props.get(head.objectId()))));
+                    head.stateOwner(), head.title(), head.stale(), project(fields, props.get(head.objectId()))));
         }
 
         String nextCursor = null;
@@ -142,7 +143,7 @@ public class ObjectQueryService {
         List<PropertyDef> fields = resolveFields(type, requestedFields);
         Map<String, Map<String, List<Object>>> props = store.loadProperties(List.of(objectId), fields);
         return new ObjectItem(row.objectId(), row.typeCode(), row.businessKey(), row.rowVersion(),
-                row.stateOwner(), row.title(), project(fields, props.get(objectId)));
+                row.stateOwner(), row.title(), store.isStale(objectId), project(fields, props.get(objectId)));
     }
 
     // ------------------------------------------------------------------

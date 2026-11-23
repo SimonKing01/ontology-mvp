@@ -653,11 +653,12 @@
                     el('span', { class: 'prop-chip' }, el('b', {}, k), ' ', fmtValue(v))));
 
             tbody.append(el('tr', {
-                class: 'row' + (selected ? ' sel' : ''),
+                class: 'row' + (selected ? ' sel' : '') + (item.stale ? ' stale' : ''),
                 onclick: () => selectObject(item.objectId)
             },
                 el('td', {}, el('div', { class: 'obj-id', text: shortId(item.objectId) })),
                 el('td', {}, el('span', { text: item.title || item.businessKey }),
+                    item.stale ? el('span', { class: 'badge warn', style: 'margin-left:6px', text: '上游已删除' }) : null,
                     item.stateOwner === 'ontology' ? el('span', { class: 'badge owner-ontology', style: 'margin-left:6px', text: '本体创建' }) : null),
                 el('td', { class: 'num', text: String(item.version) }),
                 el('td', {}, chips)
