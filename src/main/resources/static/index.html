@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>本体控制台 · Ontology MVP</title>
+    <link rel="icon"
+          href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%234f46e5'/%3E%3Ccircle cx='10' cy='11' r='3' fill='white'/%3E%3Ccircle cx='22' cy='11' r='3' fill='white' opacity='.75'/%3E%3Ccircle cx='16' cy='22' r='3' fill='white' opacity='.55'/%3E%3Cpath d='M12 12.5 20 12.5M11 13.5 15 19.5M21 13.5 17 19.5' stroke='white' stroke-width='1.4' opacity='.8'/%3E%3C/svg%3E">
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<!-- ============================ 登录 ============================ -->
+<div class="login" id="login">
+    <form class="login-card" id="login-form" autocomplete="on">
+        <div class="login-brand">
+            <span class="logo lg"></span>
+            <div>
+                <h1>本体控制台</h1>
+                <p>业务对象读模型 · Action 唯一写路径</p>
+            </div>
+        </div>
+        <div class="field">
+            <label for="login-user">账号</label>
+            <input id="login-user" name="username" value="admin" autocomplete="username" spellcheck="false">
+        </div>
+        <div class="field">
+            <label for="login-pass">密码</label>
+            <input id="login-pass" name="password" type="password" value="admin" autocomplete="current-password">
+        </div>
+        <button class="btn primary block" type="submit" id="login-submit">进入控制台</button>
+        <p class="login-err" id="login-err"></p>
+        <div class="login-accounts">
+            <span class="muted">演示账号：</span>
+            <button type="button" class="chip-btn" data-user="admin">admin · ADMIN</button>
+            <button type="button" class="chip-btn" data-user="editor">editor · EDITOR</button>
+            <button type="button" class="chip-btn" data-user="viewer">viewer · VIEWER</button>
+        </div>
+        <p class="login-note">只读控制台：查询走既有查询接口，写入只走 Action 接口，没有第二条写路径。</p>
+    </form>
+</div>
+
+<!-- ============================ 主体 ============================ -->
+<div class="app hidden" id="app">
+    <header class="topbar">
+        <div class="brand">
+            <span class="logo"></span>
+            <div class="brand-text">
+                <strong>本体控制台</strong>
+                <span>Ontology MVP</span>
+            </div>
+        </div>
+        <div class="topbar-right">
+            <a class="btn ghost sm" href="/swagger-ui.html" target="_blank" rel="noreferrer">接口文档</a>
+            <div class="user-chip">
+                <span class="avatar" id="user-avatar">A</span>
+                <span id="user-name">admin</span>
+                <span class="badge role" id="user-role">ADMIN</span>
+            </div>
+            <button class="btn ghost sm" id="logout">退出</button>
+        </div>
+    </header>
+
+    <div class="layout">
+        <!-- ---------------- 侧栏 ---------------- -->
+        <aside class="sidebar">
+            <section class="card pad-sm">
+                <div class="side-head">
+                    <h3>对象类型</h3>
+                    <span class="badge" id="type-count">0</span>
+                </div>
+                <div class="type-list" id="type-list"></div>
+            </section>
+
+            <section class="card pad-sm">
+                <div class="side-head"><h3>对象层规模</h3></div>
+                <div class="stats">
+                    <div class="stat"><span class="stat-num" id="stat-objects">–</span><span class="stat-label">对象</span></div>
+                    <div class="stat"><span class="stat-num" id="stat-props">–</span><span class="stat-label">属性值</span></div>
+                    <div class="stat"><span class="stat-num" id="stat-links">–</span><span class="stat-label">链接</span></div>
+                </div>
+                <div class="side-actions">
+                    <button class="btn ghost sm block" id="btn-ingest">重新采集</button>
+                    <button class="btn ghost sm block" id="btn-validate">校验元模型</button>
+                </div>
+            </section>
+
+            <section class="card pad-sm">
+                <div class="side-head"><h3>链接类型</h3></div>
+                <ul class="link-list" id="link-list"></ul>
+            </section>
+        </aside>
+
+        <!-- ---------------- 主区 ---------------- -->
+        <main class="main">
+            <section class="card query-card">
+                <div class="card-head">
+                    <div class="title-block">
+                        <h2 id="type-title">载入中…</h2>
+                        <p class="muted" id="type-sub"></p>
+                    </div>
+                    <div class="head-meta" id="type-meta"></div>
+                </div>
+
+                <div class="filters" id="filters"></div>
+
+                <div class="query-foot">
+                    <button class="btn ghost sm" id="add-filter">＋ 添加条件</button>
+                    <div class="spacer"></div>
+                    <label class="inline-field">排序
+                        <select id="sort-prop"></select>
+                        <select id="sort-dir">
+                            <option value="asc">升序</option>
+                            <option value="desc">降序</option>
+                        </select>
+                    </label>
+                    <label class="inline-field">每页
+                        <select id="page-size">
+                            <option>10</option>
+                            <option selected>20</option>
+                            <option>50</option>
+                        </select>
+                    </label>
+                    <button class="btn primary" id="run-query">查询</button>
+                </div>
+
+                <details class="fields-box">
+                    <summary>字段裁剪<span class="muted">（默认返回全部可见属性；勾选后只返回选中项）</span></summary>
+                    <div class="chips" id="fields"></div>
+                </details>
+            </section>
+
+            <div class="split">
+                <section class="card results-card">
+                    <div class="card-head">
+                        <div class="title-block">
+                            <h2>查询结果</h2>
+                            <p class="muted" id="results-meta">尚未查询</p>
+                        </div>
+                        <span class="badge" id="count-badge">—</span>
+                    </div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                            <tr>
+                                <th>对象</th>
+                                <th>标题</th>
+                                <th class="num">版本</th>
+                                <th>属性摘要</th>
+                            </tr>
+                            </thead>
+                            <tbody id="results-body"></tbody>
+                        </table>
+                    </div>
+                    <div class="pager">
+                        <button class="btn ghost sm" id="prev-page" disabled>上一页</button>
+                        <span class="muted" id="page-label">第 1 页</span>
+                        <button class="btn ghost sm" id="next-page" disabled>下一页</button>
+                    </div>
+                </section>
+
+                <aside class="side-panel">
+                    <section class="card detail-card">
+                        <div class="tabs">
+                            <button class="tab active" data-tab="detail">对象详情</button>
+                            <button class="tab" data-tab="action">执行 Action</button>
+                        </div>
+                        <div class="pane" id="detail-pane"></div>
+                        <div class="pane hidden" id="action-pane"></div>
+                    </section>
+                </aside>
+            </div>
+        </main>
+    </div>
+</div>
+
+<div class="toasts" id="toasts"></div>
+<div class="progress" id="progress"></div>
+
+<script src="/app.js"></script>
+</body>
+</html>

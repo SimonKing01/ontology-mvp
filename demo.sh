@@ -507,7 +507,7 @@ say "19. 汇总"
 printf '   通过 %d 项，失败 %d 项\n' "$PASS" "$FAIL"
 if [ "$FAIL" -eq 0 ]; then
   printf '\033[32m   全链路演示通过。\033[0m\n'
-  echo "   Swagger: $BASE/swagger-ui.html"
+  echo "   控制台: $BASE/    Swagger: $BASE/swagger-ui.html"
   exit 0
 else
   printf '\033[31m   存在失败项，请查看上面的输出与日志。\033[0m\n'

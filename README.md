@@ -34,7 +34,22 @@ mvn spring-boot:run
 docker compose down -v && docker compose up -d && mvn spring-boot:run && ./demo.sh
 ```
 
-`demo.sh` 最后会打印 `通过 N 项，失败 0 项`，并覆盖：建源 → 建数据集 → 建对象类型（含 revision）→ 采集 → 重采（ID 稳定）→ 查询（下推 + keyset）→ 一跳遍历 → 4 个 Action → 幂等重放 → 版本冲突 → 前置条件 → 审计 → 越权与属性裁剪。
+`demo.sh` 最后会打印 `通过 54 项，失败 0 项`，并覆盖：建源 → 建数据集 → 建对象类型（含 revision）→ 采集 → 重采（ID 稳定）→ 查询（下推 + keyset）→ 一跳遍历 → 4 个 Action → 幂等重放 → 版本冲突 → 前置条件 → 审计 → 越权与属性裁剪。
+
+### 1.1 演示控制台（额外交付，不属于 MVP 验收范围）
+
+打开 <http://localhost:8080/> 就是一个可点的控制台：
+
+![控制台](docs/console-main.png)
+
+![执行 Action](docs/console-action.png)
+
+- **查询**：按属性加条件（8 个算子）、排序、字段裁剪，结果用 keyset 翻页；
+- **对象详情**：属性（带 `source/ontology/derived` 徽标）、一跳链接、`act_edit` 变更时间线；
+- **执行 Action**：参数表单按元模型自动生成，版本号自动从选中对象/引用对象携带，幂等键可复用（演示重放），可勾选"故意用旧版本"（演示 409）；
+- **权限对比**：用 `viewer` 登录，类型只剩 3 个，Flight 的 `cancelReason/closeReason` 被裁掉，执行 Action 返回 403。
+
+实现是原生 HTML/CSS/JS（`src/main/resources/static/`），没有构建链，由应用静态托管；**只调用既有 API，没有新增任何写路径**，唯一的后端新增是一个只读的 `GET /api/session`（返回当前角色）。它不在提示词的交付清单里，只是为了让链路"看得见"；Basic 凭据放在 `sessionStorage`，仅供本地演示。
 
 ---
 
@@ -65,7 +80,8 @@ docker compose down -v && docker compose up -d && mvn spring-boot:run && ./demo.
 - **读**：只碰 `obj_*`，过滤/排序/分页全部在 SQL 里完成；
 - **写**：只有 `ActionEngine` 能改 `obj_prop` 里 ontology-owned 的部分；
 - **采集**：只写 source/derived 属性，不触碰 ontology 状态，所以不算第二条写路径；
-- **元模型**：启动时全量校验并加载成内存快照，任何不合法（尤其"Action 改 source 属性"）会让应用启动失败。
+- **元模型**：启动时全量校验并加载成内存快照，任何不合法（尤其"Action 改 source 属性"）会让应用启动失败；
+- **控制台**：`/` 下的静态页，只调用上述三类接口（额外，不参与验收）。
 
 目录：
 
@@ -80,6 +96,7 @@ src/main/java/com/example/ontology/
 src/main/resources/db/migration/
 ├── V1__init.sql          本体表（含全部索引与约束）
 └── V2__demo_source.sql   演示用上游 schema 与数据
+src/main/resources/static/  演示控制台（index.html / app.js / style.css，无构建链）
 ```
 
 ---
@@ -303,6 +320,7 @@ Limit
 | GET | `/api/meta/object-types/{code}/history` | 历史版本列表 |
 | 同上 | `/api/meta/link-types/**`、`/api/meta/action-types/**` | 链接类型 / Action 类型 |
 | GET | `/api/meta/validate` | 重新校验当前元模型，返回全部错误（不改变运行中快照） |
+| GET | `/api/session` | 当前用户与角色（控制台显示用，只读） |
 | POST/GET | `/api/datasources`、`/api/datasets` | 数据源（密码加密）/ 数据集 |
 | POST | `/api/ingest/object-types/{code}`、`/api/ingest/links`、`/api/ingest/derived`、`/api/ingest/all` | 采集 |
 | GET | `/api/ingest/stats` | 对象/属性/链接规模 |
@@ -338,7 +356,7 @@ Limit
 mvn test
 ```
 
-23 个用例，覆盖契约要求的 6 类：
+25 个用例，覆盖契约要求的 6 类：
 
 | 覆盖点 | 用例 | 断言重点 |
 |---|---|---|
@@ -348,6 +366,7 @@ mvn test
 | 越权 | `ActionSemanticsTest.VIEWER_不能执行_Action_且属性被裁剪` | 403 + 裁剪 |
 | 查询下推 | `QueryPushdownTest.属性过滤翻译成_EXISTS_子查询并出现在_SQL_日志里` | 日志含 `exists (select 1 from obj_prop` 与 `f0.prop_key` |
 | 前置条件失败 | `ActionSemanticsTest.前置条件失败返回_422_且带_error_code` | 422 + `ORDER_DEPARTED` + 事务回滚（无 act_run） |
+| 控制台外壳 | `SessionUiTest` | 静态页匿名可打开、`/api/**` 仍 401、`/api/session` 返回角色 |
 
 另外还有：
 
@@ -403,6 +422,7 @@ TEST_DB_URL=jdbc:postgresql://localhost:55434/ontology_test mvn test
 4. **链接与采集的竞争**：`Action` 删掉的链接，下次全量采集会按上游事实重建（`on conflict do nothing` 只能防重复，不能防"复活"）。下一期给链接加归属/墓碑。
 5. **元模型循环引用需两阶段引入**：`Flight.delayMinutes` 依赖 `DelayedBy`，而 `DelayedBy` 依赖 `Flight`，所以先建类型与链接、再 `PUT` 补派生属性（正好演示 revision 1→2）。要一次成型需要"多定义草稿 + 原子发布"。
 6. **单字段排序**、多值属性不支持过滤/排序/前置条件、不支持跨数据源链接——都是刻意收窄，避免语义含糊。
+7. **演示控制台不在 MVP 范围**：静态页 + 一个只读 session 接口；Basic 凭据存 `sessionStorage`，生产必须换成正式登录态。
 
 **明确不做（按契约）**
 
