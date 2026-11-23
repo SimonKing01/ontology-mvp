@@ -46,6 +46,19 @@
         });
     }
 
+    let ingestTimer = null;
+
+    function fmtInt(n) {
+        return Number(n || 0).toLocaleString('zh-CN');
+    }
+
+    function fmtElapsed(ms) {
+        const total = Math.floor((ms || 0) / 1000);
+        if (total < 60) return total + ' 秒';
+        const m = Math.floor(total / 60);
+        return m + ' 分 ' + (total % 60) + ' 秒';
+    }
+
     function shortId(id, keep = 34) {
         if (!id) return '';
         return id.length > keep ? id.slice(0, keep - 1) + '…' : id;
@@ -1092,17 +1105,72 @@
             t.addEventListener('click', () => setTab(t.dataset.tab));
         });
         $('#btn-ingest').addEventListener('click', async () => {
+            const btn = $('#btn-ingest');
+            if (btn.dataset.busy === '1') return;
+            btn.dataset.busy = '1';
+            btn.disabled = true;
+            startIngestProgress();
             try {
                 const r = await api('/api/ingest/all', { method: 'POST' });
-                const created = (r.objectTypes || []).reduce((a, t) => a + t.created, 0);
-                toast('采集完成', 'ok', 'ingest', `新建 ${created} 个对象，链接 ${r.links ? r.links.linksCreated : 0} 条`);
+                const sum = k => (r.objectTypes || []).reduce((a, t) => a + (t[k] || 0), 0);
+                toast('采集完成', 'ok', 'ingest',
+                    `新建 ${sum('created')} · 更新 ${sum('updated')} · 链接 ${r.links ? r.links.linksCreated : 0} 条`);
                 await loadCounts();
                 await refreshStats();
                 if (state.type) await runQuery(true);
             } catch (e) {
                 toast(e.message, 'err', e.code, e.details ? JSON.stringify(e.details) : null);
+            } finally {
+                btn.dataset.busy = '';
+                btn.disabled = false;
+                stopIngestProgress();
             }
         });
+
+        // 采集进度：轮询 /api/ingest/progress，采集请求本身保持 pending
+        function startIngestProgress() {
+            const box = $('#ingest-progress');
+            if (!box) return;
+            box.classList.remove('hidden');
+            $('#ip-fill').style.width = '0%';
+            $('#ip-pct').textContent = '0%';
+            $('#ip-count').textContent = '— / —';
+            $('#ip-rate').textContent = '';
+            $('#ip-elapsed').textContent = '';
+            $('#ip-type').textContent = '';
+            pollIngestProgress();
+            if (ingestTimer) clearInterval(ingestTimer);
+            ingestTimer = setInterval(pollIngestProgress, 800);
+        }
+
+        function stopIngestProgress() {
+            if (ingestTimer) {
+                clearInterval(ingestTimer);
+                ingestTimer = null;
+            }
+            const box = $('#ingest-progress');
+            if (box) box.classList.add('hidden');
+        }
+
+        async function pollIngestProgress() {
+            try {
+                const res = await fetch('/api/ingest/progress', {
+                    headers: { 'Authorization': 'Basic ' + btoa(`${session.user}:${session.pass}`) }
+                });
+                if (!res.ok) return;
+                const p = await res.json();
+                if (!p.running) return;
+                const pct = Math.max(0, Math.min(100, p.percent || 0));
+                $('#ip-fill').style.width = pct + '%';
+                $('#ip-pct').textContent = pct.toFixed(1) + '%';
+                $('#ip-count').textContent = fmtInt(p.processed) + ' / ' + fmtInt(p.total) + ' 行';
+                $('#ip-type').textContent = p.currentType || '';
+                $('#ip-rate').textContent = p.rowsPerSecond ? fmtInt(p.rowsPerSecond) + ' 行/秒' : '';
+                $('#ip-elapsed').textContent = p.elapsedMs ? '已用 ' + fmtElapsed(p.elapsedMs) : '';
+            } catch (e) {
+                // 轮询失败忽略，下一轮再试
+            }
+        }
         $('#btn-validate').addEventListener('click', async () => {
             try {
                 const r = await api('/api/meta/validate');

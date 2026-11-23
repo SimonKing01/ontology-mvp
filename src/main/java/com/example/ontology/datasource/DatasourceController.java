@@ -98,4 +98,10 @@ public class DatasourceController {
     public Map<String, Object> stats() {
         return ingestService.layerStats();
     }
+
+    @GetMapping("/ingest/progress")
+    @Operation(summary = "当前采集进度（前端轮询用）：已处理行数 / 总行数 / 速率")
+    public Map<String, Object> progress() {
+        return ingestService.progress();
+    }
 }

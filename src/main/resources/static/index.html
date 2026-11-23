@@ -181,6 +181,21 @@
 <div class="meta-view hidden" id="meta-view"></div>
 
 <div class="toasts" id="toasts"></div>
+
+<div class="ingest-progress hidden" id="ingest-progress">
+    <div class="ip-head">
+        <span class="ip-dot"></span>
+        <span class="ip-title">正在采集</span>
+        <span class="ip-type" id="ip-type"></span>
+        <span class="ip-pct" id="ip-pct">0%</span>
+    </div>
+    <div class="ip-bar"><div class="ip-fill" id="ip-fill"></div></div>
+    <div class="ip-meta">
+        <span id="ip-count">— / —</span>
+        <span id="ip-rate"></span>
+        <span id="ip-elapsed"></span>
+    </div>
+</div>
 <div class="progress" id="progress"></div>
 
 <script src="/app.js"></script>

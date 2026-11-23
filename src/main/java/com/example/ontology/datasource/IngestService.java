@@ -69,6 +69,75 @@ public class IngestService {
     }
 
     // ------------------------------------------------------------------
+    // 进度：单实例采集时记录，供前端轮询（多实例部署需换成共享状态）
+    // ------------------------------------------------------------------
+    private final java.util.concurrent.atomic.AtomicLong processedRows = new java.util.concurrent.atomic.AtomicLong();
+    private final java.util.concurrent.atomic.AtomicLong totalRows = new java.util.concurrent.atomic.AtomicLong();
+    private volatile boolean running = false;
+    private volatile long startedAt = 0L;
+    private volatile String currentType = null;
+
+    public Map<String, Object> progress() {
+        long processed = processedRows.get();
+        long total = totalRows.get();
+        long elapsed = running && startedAt > 0 ? System.currentTimeMillis() - startedAt : 0;
+        double percent = total > 0 ? Math.min(100.0, processed * 100.0 / total) : 0.0;
+        double rate = elapsed > 0 ? processed * 1000.0 / elapsed : 0.0;
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("running", running);
+        body.put("processed", processed);
+        body.put("total", total);
+        body.put("percent", Math.round(percent * 10) / 10.0);
+        body.put("currentType", currentType);
+        body.put("elapsedMs", elapsed);
+        body.put("rowsPerSecond", Math.round(rate));
+        return body;
+    }
+
+    /** 估算一个类型的采集目标行数（受数据集 maxRows 限制），用于进度条分母。 */
+    private long estimateTypeRows(String typeCode) {
+        try {
+            ObjectTypeDef type = registry.objectType(typeCode);
+            MetaQueryRepository.DatasetMeta ds = meta.requireDataset(type.datasetId());
+            MetaQueryRepository.SourceMeta source = meta.requireSource(ds.sourceId());
+            if ("POSTGRES".equals(source.kind())) {
+                JdbcTemplate template = connections.jdbcTemplate(source);
+                String table = SqlIdent.qualify(ds.schemaName(), ds.tableName());
+                Long n = template.queryForObject("select count(*) from " + table, Long.class);
+                return Math.min(n == null ? 0L : n, ds.maxRows());
+            }
+            return ds.maxRows();
+        } catch (RuntimeException ex) {
+            log.warn("估算采集目标失败 type={}: {}", typeCode, ex.getMessage());
+            return 0L;
+        }
+    }
+
+    private long estimateAllRows() {
+        long total = 0;
+        for (ObjectTypeDef type : registry.objectTypes()) {
+            if (type.statusOrDefault() == ObjectTypeStatus.DEPRECATED) {
+                continue;
+            }
+            total += estimateTypeRows(type.code());
+        }
+        return total;
+    }
+
+    private void beginProgress(long total) {
+        processedRows.set(0L);
+        totalRows.set(total);
+        startedAt = System.currentTimeMillis();
+        currentType = null;
+        running = true;
+    }
+
+    private void endProgress() {
+        running = false;
+        currentType = null;
+    }
+
+    // ------------------------------------------------------------------
     // 报告
     // ------------------------------------------------------------------
     public record IngestReport(String typeCode, String datasetId, int readRows, int created, int updated,
@@ -89,7 +158,13 @@ public class IngestService {
     // ------------------------------------------------------------------
     @Transactional(transactionManager = TransactionConfig.JDBC_TX_MANAGER)
     public IngestReport ingestObjectType(String typeCode) {
-        return doIngestObjectType(typeCode);
+        beginProgress(estimateTypeRows(typeCode));
+        currentType = typeCode;
+        try {
+            return doIngestObjectType(typeCode);
+        } finally {
+            endProgress();
+        }
     }
 
     @Transactional(transactionManager = TransactionConfig.JDBC_TX_MANAGER)
@@ -104,15 +179,21 @@ public class IngestService {
 
     /** 对象 → 链接 → 派生，一个事务内完成，避免出现"有对象没链接"的中间态。 */
     public IngestAllReport ingestAll() {
-        return tx.execute(status -> {
-            List<IngestReport> reports = new ArrayList<>();
-            for (ObjectTypeDef type : registry.objectTypes()) {
-                reports.add(doIngestObjectType(type.code()));
-            }
-            LinkReport links = doRebuildLinks();
-            DerivedReport derived = doRecomputeDerived();
-            return new IngestAllReport(reports, links, derived);
-        });
+        beginProgress(estimateAllRows());
+        try {
+            return tx.execute(status -> {
+                List<IngestReport> reports = new ArrayList<>();
+                for (ObjectTypeDef type : registry.objectTypes()) {
+                    currentType = type.code();
+                    reports.add(doIngestObjectType(type.code()));
+                }
+                LinkReport links = doRebuildLinks();
+                DerivedReport derived = doRecomputeDerived();
+                return new IngestAllReport(reports, links, derived);
+            });
+        } finally {
+            endProgress();
+        }
     }
 
     // ------------------------------------------------------------------
@@ -165,6 +246,7 @@ public class IngestService {
                 }
                 propsWritten += writeProperty(objectId, prop, raw);
             }
+            processedRows.incrementAndGet();
         }
 
         IngestReport report = new IngestReport(type.code(), type.datasetId(), rows.size(), created, updated,
