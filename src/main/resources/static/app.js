@@ -7,6 +7,7 @@ import {
     state, typeOf, propDef, currentAction, setUnauthorizedHandler
 } from './core.js';
 import { initTraverse, renderTraversePane } from './views/traverse.js';
+import { initAggregate, openAggregate } from './views/aggregate.js';
 
 (() => {
     'use strict';
@@ -1051,6 +1052,8 @@ import { initTraverse, renderTraversePane } from './views/traverse.js';
 
     /* ---------------------------------------------------------------- 事件 */
     function bindApp() {
+        $('#btn-agg').addEventListener('click', () => openAggregate());
+
         $('#add-filter').addEventListener('click', () => {
             const props = state.type ? (state.type.properties || []) : [];
             if (!props.length) return;
@@ -1152,6 +1155,7 @@ import { initTraverse, renderTraversePane } from './views/traverse.js';
         bindLogin();
         bindApp();
         initTraverse({ selectObject });
+        initAggregate({ onClose: () => { if (state.type) runQuery(true); } });
         document.querySelectorAll('.view-btn').forEach(b =>
             b.addEventListener('click', () => setView(b.dataset.view)));
         const saved = sessionStorage.getItem(SESSION_KEY);

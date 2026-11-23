@@ -1,6 +1,7 @@
 package com.example.ontology.objectdata.web;
 
 import com.example.ontology.objectdata.query.LinkQueryService;
+import com.example.ontology.objectdata.query.AggregateService;
 import com.example.ontology.objectdata.query.TraversalService;
 import com.example.ontology.objectdata.query.ObjectQueryDtos;
 import com.example.ontology.objectdata.query.ObjectQueryService;
@@ -35,12 +36,14 @@ public class ObjectController {
     private final ObjectQueryService queryService;
     private final LinkQueryService linkQueryService;
     private final TraversalService traversalService;
+    private final AggregateService aggregateService;
 
     public ObjectController(ObjectQueryService queryService, LinkQueryService linkQueryService,
-                            TraversalService traversalService) {
+                            TraversalService traversalService, AggregateService aggregateService) {
         this.queryService = queryService;
         this.linkQueryService = linkQueryService;
         this.traversalService = traversalService;
+        this.aggregateService = aggregateService;
     }
 
     @PostMapping("/query")
@@ -70,6 +73,12 @@ public class ObjectController {
                                       @RequestParam(required = false) Integer pageSize,
                                       @RequestParam(required = false) String cursor) {
         return linkQueryService.links(objectId, linkType, direction, pageSize, cursor);
+    }
+
+    @PostMapping("/aggregate")
+    @Operation(summary = "按一个属性分组聚合：count / sum / avg / min / max")
+    public AggregateService.Result aggregate(@RequestBody AggregateService.Request request) {
+        return aggregateService.aggregate(request);
     }
 
     @PostMapping("/{objectId}/traverse")

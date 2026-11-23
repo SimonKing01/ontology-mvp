@@ -119,7 +119,7 @@ public class ObjectQuerySqlBuilder {
     }
 
     // ------------------------------------------------------------------
-    private void appendFilters(StringBuilder sql, MapSqlParameterSource params,
+    void appendFilters(StringBuilder sql, MapSqlParameterSource params,
                                ObjectTypeDef type, List<FilterDef> filters) {
         if (filters == null) {
             return;
