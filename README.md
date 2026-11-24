@@ -36,6 +36,18 @@ docker compose down -v && docker compose up -d && mvn spring-boot:run && ./demo.
 
 `demo.sh` 最后会打印 `通过 54 项，失败 0 项`，并覆盖：建源 → 建数据集 → 建对象类型（含 revision）→ 采集 → 重采（ID 稳定）→ 查询（下推 + keyset）→ 一跳遍历 → 4 个 Action → 幂等重放 → 版本冲突 → 前置条件 → 审计 → 越权与属性裁剪。
 
+**停止与再启动**（`stop` 保留数据卷，下次 `up -d` 数据还在）：
+
+```bash
+# 停应用：前台 Ctrl+C；后台跑的就按端口找进程
+#   Windows : netstat -ano | findstr :8080  →  taskkill /PID <pid> /T /F
+#   macOS/Linux: lsof -ti:8080 | xargs kill
+# 停数据库（保留数据）
+docker compose stop
+# 连数据一起删掉（下次启动是空库，demo.sh 可重跑）
+docker compose down -v
+```
+
 ### 1.1 演示控制台（额外交付，不属于 MVP 验收范围）
 
 打开 <http://localhost:8080/> 就是一个可点的控制台：
